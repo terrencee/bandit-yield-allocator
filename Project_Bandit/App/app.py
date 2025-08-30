@@ -59,34 +59,97 @@ with st.sidebar:
 
     st.subheader("Reward Penalties (k × |Δyield|)")
     k91  = st.number_input("k (91d)",  0.0, 2.0, 0.00, 0.05,
-                           help="Penalty for 91-day bill when yields move. Set near 0 for very low duration risk.")
+                           help="Penalty for 91-day bill when yields move. Set near 0 for very low duration risk."
+                           " Higher k means more reluctance to switch to this arm."
+                           " (In practice, 91d has the lowest duration/roll risk.)"
+                           "having the lowest duration/roll risk means it should have the lowest k.)")
     k364 = st.number_input("k (364d)", 0.0, 2.0, 0.25, 0.05,
-                           help="Penalty per unit of daily yield change for 364-day bill (duration/roll risk).")
+                           help="Penalty per unit of daily yield change for 364-day bill (duration/roll risk)."
+                           " Should be between k91 and k10."
+                           " (In practice, 364d has medium duration/roll risk.)")
     k10  = st.number_input("k (10y)",  0.0, 2.0, 0.50, 0.05,
-                           help="Penalty for 10-year G-Sec (highest duration risk among the three).")
+                           help="Penalty for 10-year G-Sec (highest duration risk among the three)."
+                           " Should be the highest among the three ks.")
     switch_bps = st.number_input("Switch cost (bps)", 0.0, 10.0, 1.0, 0.5,
-                                 help="Transaction/slippage cost when switching arms. 1 bps = 0.01%.")
+                                 help="Transaction/slippage cost when switching arms. 1 bps = 0.01%."
+                                 " Discourages frequent switching in ε-greedy."
+                                 " (LinUCB is less sensitive to this parameter.)"
+                                 " Set to 0 for no cost."
+                                 " Typical real-world costs may be around 1-2 bps."
+                                 " Higher values discourage switching more strongly."
+                                 " bps means 'basis points', where 1 bps = 0.01% = 0.0001 in decimal.")
 
     st.subheader("ε-Greedy",
                  help="Simple non-contextual bandit: with probability ε, explore a random arm; "
-                      "otherwise exploit the best estimated arm.")
+                      "otherwise exploit the best estimated arm."
+                      " Includes a small switch cost to avoid excessive trading."
+                      " Requires no features; just the reward history."
+                      " Good baseline to compare against."
+                      " Works well if one arm is clearly best most of the time."
+                      " More exploration (higher ε) helps if the best arm changes often."
+                      " e_greedy is fast and simple, but doesn't adapt to context like LinUCB.")
     eps  = st.slider("epsilon", 0.0, 0.2, 0.05, 0.01,
-                     help="Exploration rate. With probability ε, try a random arm to keep learning.")
+                     help="Exploration rate. With probability ε, try a random arm to keep learning."
+                     " Higher ε means more exploration, which can help if the best arm changes often."
+                     " But too high ε means too much random exploration, hurting returns.")
     seed = st.number_input("seed", 0, 9999, 0, 1,
-                           help="Random seed for reproducible ε-greedy. (LinUCB is deterministic here.)")
+                           help="Random seed for reproducible ε-greedy. (LinUCB is deterministic here.)"
+                           " Change to get a different random exploration sequence."
+                           " Only matters if ε > 0."
+                           " Different seeds can lead to different results due to randomness."
+                           " Try a few seeds to see variability."
+                           " In practice, averaging over multiple seeds gives a more robust estimate of performance."
+                           " But for simplicity, we just use one seed here."
+                           " In real-world use, consider running multiple seeds and averaging results."
+                           " reproducible e-greedy means the same random choices each run with the same seed.")
 
     st.subheader("LinUCB",
                  help="Contextual bandit with linear models & an optimism bonus (α). "
-                      "Uses features like slope, Δslope, and momentum. Higher α = more exploration.")
+                      "Uses features like slope, Δslope, and momentum. Higher α = more exploration."
+                      " Adapts to changing conditions by exploring uncertain arms."
+                      " Works well if the best arm depends on context (features)."
+                        " More exploration (higher α) helps when uncertainty is high."
+                        " But too high α means too much exploration, hurting returns."
+                        " LinUCB is more complex and computationally intensive than ε-greedy."
+                        " But it can adapt to changing conditions better by using context."
+                        " In practice, LinUCB often outperforms simple methods like ε-greedy when good features are available."
+                        " However, it requires careful feature engineering and parameter tuning."
+                        " ε-greedy is simpler and faster, but may miss opportunities that LinUCB can exploit."
+                        " LinUCB is more robust to changing environments due to its contextual nature."
+                        " But it can be sensitive to feature quality and parameter choices.")
     alpha = st.slider("alpha", 0.0, 1.0, 0.5, 0.05,
-                      help="Optimism bonus. Larger α = more exploration when uncertainty is high.")
+                      help="Optimism bonus. Larger α = more exploration when uncertainty is high."
+                      " Helps LinUCB explore arms with uncertain rewards."
+                      " But too high α means too much exploration, hurting returns."
+                      " If α = 0, LinUCB becomes a greedy algorithm, always exploiting the best estimated arm."
+                      " Typical values are between 0.1 and 1.0."
+                      " In practice, tuning α based on validation performance can help."
+                      " α controls the trade-off between exploration and exploitation."
+                      " Higher α encourages trying arms with uncertain rewards more often."
+                      " But too high α can lead to excessive exploration, hurting overall returns.")
     f_slope  = st.checkbox("slope (10y − 91d)", True,
                            help="Term-structure slope feature (lagged 1 day). "
-                                "Steepening favors short; flattening favors long.")
+                                "Steepening favors short; flattening favors long."
+                                " Captures overall curve shape."
+                                " A positive slope (10y > 91d) often indicates economic growth expectations."
+                                " A negative slope (inversion) can signal economic slowdown."
+                                " Including slope helps LinUCB adapt to changing yield curve conditions.")
     f_dslope = st.checkbox("Δslope", True,
-                           help="Daily change in slope (lagged 1 day). Captures steepening/flattening.")
+                           help="Daily change in slope (lagged 1 day). Captures steepening/flattening."
+                           " Helps detect shifts in market sentiment."
+                           " Positive Δslope (steepening) often favors short-term bills."
+                            " Negative Δslope (flattening) often favors long-term bonds."
+                            " Including Δslope helps LinUCB respond to recent changes in the yield curve."
+                            " Δslope captures momentum in yield curve movements.")
     f_mom    = st.checkbox("10y momentum (5d)", True,
-                           help="Short-term 10y yield momentum (lagged 1 day). Captures recent trend.")
+                           help="Short-term 10y yield momentum (lagged 1 day). Captures recent trend."
+                           " Positive momentum often favors long-term bonds."
+                           " Negative momentum often favors short-term bills."
+                           " Including momentum helps LinUCB adapt to recent yield trends."
+                           " Momentum captures short-term trends that slope alone may miss."
+                           " Helps LinUCB respond to recent market movements."
+                           " Momentum can indicate investor sentiment and risk appetite."
+                           " Including momentum can improve LinUCB's adaptability to changing conditions.")
 
     
     # ----------------------------------------------------------------------
