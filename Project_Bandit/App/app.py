@@ -322,8 +322,64 @@ if st.session_state["ready"]:
             rows.append(("LinUCB", ar, av, sh))
 
         metr = pd.DataFrame(rows, columns=["Strategy", "AnnRet", "AnnVol", "Sharpe"]).set_index("Strategy")
+        # Help popover above the table
+        with st.popover("ℹ️ Metrics help"):
+            st.markdown(
+        """
+            **Annualized return (AnnRet), volatility (AnnVol), and Sharpe ratio** (risk-adjusted return).
+
+            - **AnnRet** = average daily return × **252**  
+            - **AnnVol** = std. dev. of daily returns × **√252**  
+            - **Sharpe** = AnnRet / AnnVol → **higher is better**
+
+                Notes: Negative Sharpe indicates underperformance vs a risk-free asset.  
+                These are historical, ignore many frictions, and don’t predict the future.
+        """
+    )
         st.dataframe(
-            metr.style.format({"AnnRet":"{:.2%}","AnnVol":"{:.2%}","Sharpe":"{:.2f}"}),
+            metr.style.format({"AnnRet":"{:.2%}",
+                               "AnnVol":"{:.2%}",
+                               "Sharpe":"{:.2f}"}),
             use_container_width=True,
             height=340,
+        )
+        st.caption(
+    "AnnRet/AnnVol annualized with 252 trading days; Sharpe = AnnRet / AnnVol. "
+    "Use alongside other metrics and qualitative context."
+)
+        st.info(
+    " ! These are historical metrics that ignore many real-world frictions. "
+    "They do not predict future performance. "
+    "Do not use this app for real trading without further validation and risk controls."
+)
+        # adding an important note on why epsGreedy has performed better than LinUCB
+        st.markdown(
+        "Why is ε-Greedy Sharpe sometimes better than LinUCB? " 
+        "A few reasons:"
+
+       "Stability vs. complexity"
+
+        "ε-Greedy only looks at past average rewards. It exploits the best so far, with a little random exploration."
+        "It doesn’t try to use features (slope, Δslope, momentum), so it won’t “overfit” to noisy signals."
+        "That simplicity can actually yield smoother allocations and lower volatility → better Sharpe."
+
+        "Feature quality"
+
+        "LinUCB’s edge comes from good context features. If slope, Δslope, momentum aren’t very predictive in your dataset," 
+         "then LinUCB won’t beat a simpler rule.Worse, if they are noisy, LinUCB may over-explore, leading to choppier allocations" 
+         "(higher vol, same or lower return)."
+
+        "Parameter tuning"
+
+        "LinUCB has an α (optimism bonus) hyperparameter. Too high → too much exploration (hurts Sharpe)."
+         " Too low → too conservative (acts almost like greedy, adds no benefit)."
+         "ε-Greedy with ε≈0.05 is often “just right” for balancing exploration/exploitation, so it can look cleaner."
+
+        "Regret horizon"
+
+        "Bandits shine in very long horizons. If you only have a finite dataset (~25 years)," 
+         "sometimes the simpler policy ends up winning just by avoiding noise."
+
+        "So: ε-Greedy ≠ worse by definition — it can look better if your features don’t strongly explain yield shifts." 
+         " LinUCB should outperform only if slope/Δslope/momentum contain reliable signals."
         )
