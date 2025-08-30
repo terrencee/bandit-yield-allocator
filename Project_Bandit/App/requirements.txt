@@ -1,0 +1,7 @@
+# requirements.txt
+streamlit>=1.25
+pandas>=1.5
+numpy>=1.23
+matplotlib>=3.7
+plotly>=5.15
+scikit-learn>=1.2   # optional, if needed
