@@ -1,6 +1,6 @@
 # Bandit Allocation in Indian Yield Curve
 
-📍 **Live Demo:** [Streamlit App](https://your-streamlit-app-link.streamlit.app)  
+📍 **Live Demo:** [Streamlit App](https://bandit-yield-allocator-bandit-adhiraj.streamlit.app/)  
 *(replace with your actual Streamlit Cloud link after deployment)*
 
 This project explores **multi-armed bandit algorithms** (ε-Greedy and LinUCB) for daily allocation between  
