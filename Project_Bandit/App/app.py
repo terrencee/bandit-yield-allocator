@@ -136,6 +136,10 @@ if st.session_state["ready"]:
     view_lo, view_hi = st.session_state["date_window"]
     view_mask = (df["Date"] >= view_lo) & (df["Date"] <= view_hi)
 
+    # after computing view_mask
+    df_view = df.loc[view_mask].copy()
+
+
     # 1) Build rewards
     df = build_rewards(df, k91=k91, k364=k364, k10=k10)
 
@@ -181,17 +185,17 @@ if st.session_state["ready"]:
             """)
         st.caption(source_note)
         st.dataframe(
-            df[["Date","Yield_91d","Yield_364d","Yield_10y"]].head(25),
+            df_view[["Date","Yield_91d","Yield_364d","Yield_10y"]].head(25),
             use_container_width=True,
             height=360,
         )
 
     # ------------ Equity ------------
     with tab2:
-        curves = {**eq_base, "EpsGreedy": eq_e}
+        curves = {**eq_base, "EpsGreedy": eq_e.reindex(df.index)}
         if eq_l is not None:
             curves["LinUCB"] = eq_l.reindex(df.index)   # align lengths
-        st.pyplot(plot_equity(df["Date"], curves))
+        st.pyplot(plot_equity(df_view["Date"], {k: v.reindex(df_view.index) for k,v in curves.items()}))
 
     # ------------ Allocations ------------
     with tab3:
@@ -241,12 +245,17 @@ if st.session_state["ready"]:
             ("Always_364d", r364),
             ("Always_10y", r10),
             ("EpsGreedy", pd.Series(rew_e, index=df.index)),
-        ]:
-            ar, av, sh = ann_ret_vol_sharpe(r)
+            ]:
+            r_view = r.reindex(df_view.index).dropna()
+            ar, av, sh = ann_ret_vol_sharpe(r_view)
             rows.append((name, ar, av, sh))
 
         if rew_l is not None:
-            ar, av, sh = ann_ret_vol_sharpe(pd.Series(rew_l, index=df.index[mask]))
+            # series of LinUCB rewards, aligned to full df (only valid where mask=True)
+            rew_l_series = pd.Series(rew_l, index=df.index[mask])
+            # then clip it to the view window
+            rew_l_series = rew_l_series.reindex(df_view.index)
+            ar, av, sh = ann_ret_vol_sharpe(rew_l_series.dropna())
             rows.append(("LinUCB", ar, av, sh))
 
         metr = pd.DataFrame(rows, columns=["Strategy", "AnnRet", "AnnVol", "Sharpe"]).set_index("Strategy")
