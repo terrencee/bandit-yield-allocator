@@ -260,6 +260,13 @@ if st.session_state["ready"]:
             curves["LinUCB"] = eq_l.reindex(df.index)   # align lengths
         st.pyplot(plot_equity(df_view["Date"], {k: v.reindex(df_view.index) for k,v in curves.items()}))
 
+    # some footnotes
+        st.markdown( "At each day, the Oracle always picks the instrument with the highest reward that day."
+                    "In reality, you cannot know this ahead of time (it’s “future information”" \
+                    "It’s an upper bound: the best possible path if you had perfect foresight."
+                    "Think of Oracle as your theoretical ceiling — no bandit or strategy can ever do better, "
+                    "but if you approach it, you’re doing very well.")
+
     # ------------ Allocations ------------
     with tab3:
         labels = ["91d", "364d", "10y"]
