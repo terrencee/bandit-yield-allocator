@@ -150,6 +150,18 @@ with st.sidebar:
                            " Helps LinUCB respond to recent market movements."
                            " Momentum can indicate investor sentiment and risk appetite."
                            " Including momentum can improve LinUCB's adaptability to changing conditions.")
+    
+    st.subheader("Sharpe Calculation")
+    use_excess = st.checkbox(
+    "Use excess returns vs 91d (risk-free baseline)",
+    value=True,
+    help="If checked, Sharpe ratios are computed on returns net of 91d T-bill. "
+         "This avoids inflated Sharpe for the 91d arm and makes strategies comparable."
+            " If unchecked, Sharpe is computed on raw returns."
+            " Using excess returns is standard practice for Sharpe ratios."
+            " It accounts for the risk-free rate and provides a more accurate risk-adjusted return."
+)
+
 
     
     # ----------------------------------------------------------------------
@@ -317,12 +329,16 @@ if st.session_state["ready"]:
             ("EpsGreedy", pd.Series(rew_e, index=df.index)),
             ]:
             r_view = r.reindex(df_view.index).dropna()
+            if use_excess :
+                r_view = r_view - r91.reindex(r_view.index).dropna()
             ar, av, sh = ann_ret_vol_sharpe(r_view)
             rows.append((name, ar, av, sh))
 
         if rew_l is not None:
             # series of LinUCB rewards, aligned to full df (only valid where mask=True)
-            rew_l_series = pd.Series(rew_l, index=df.index[mask])
+            rew_l_series = pd.Series(rew_l, index=df.index[mask]).reindex(df_view.index).dropna()
+            if use_excess:
+                rew_l_series = rew_l_series - r91.reindex(rew_l_series.index).dropna()
             # then clip it to the view window
             rew_l_series = rew_l_series.reindex(df_view.index)
             ar, av, sh = ann_ret_vol_sharpe(rew_l_series.dropna())
@@ -354,11 +370,30 @@ if st.session_state["ready"]:
     "AnnRet/AnnVol annualized with 252 trading days; Sharpe = AnnRet / AnnVol. "
     "Use alongside other metrics and qualitative context."
 )
+        
+        if use_excess:
+            st.caption(
+            "Metrics computed on **excess returns vs 91-day**: r_excess(t) = r_strategy(t) − r_91d(t). "
+            "AnnRet = mean(r_excess) × 252; AnnVol = std(r_excess) × √252; Sharpe = AnnRet / AnnVol. "
+            "For the 91-day baseline, excess ≡ 0 ⇒ Sharpe undefined (shown as “—”)."
+        )
+        else:
+            st.info(
+            "Metrics computed on **raw daily returns** (no baseline): "
+            "AnnRet = mean(r) × 252; AnnVol = std(r) × √252; Sharpe = AnnRet / AnnVol."
+        )
+            
+        st.info(
+    " ! Since 91d beats 364d and 10y most of the time, excess returns are a more meaningful comparison." \
+    " This avoids inflated Sharpe for the 91d arm and makes strategies comparable." \
+    "This also makes the sharpe ratios negative for strategies that underperform 91d."
+)
         st.info(
     " ! These are historical metrics that ignore many real-world frictions. "
     "They do not predict future performance. "
     "Do not use this app for real trading without further validation and risk controls."
 )
+       
         # adding an important note on why epsGreedy has performed better than LinUCB
         st.markdown(
         "Why is ε-Greedy Sharpe sometimes better than LinUCB? " 
